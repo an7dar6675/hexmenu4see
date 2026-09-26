@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Fresitas Loader Clone</title>
+  <style>
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background-color: rgba(0, 0, 0, 0.6);
+    }
+
+    .ui-wrapper {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 350px;
+      text-align: center;
+      z-index: 2;
+      color: white;
+      -webkit-text-stroke: 0.3px black;
+      paint-order: stroke fill;
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    .status-text {
+      font-size: 14px;
+      margin-bottom: 8px;
+      letter-spacing: 0.3px;
+      min-height: 20px;
+    }
+
+    .bar-container {
+      width: 100%;
+      height: 8px;
+      background: rgb(0, 0, 0);
+      margin: 0 auto;
+      border-radius: 2px;
+      position: relative;
+      /* overflow must be visible so the gif can sit slightly outside the bar */
+      overflow: visible;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #ff0000;
+      box-shadow: 0 0 6px #bd1600;
+      transition: width 0.2s linear;
+      position: relative;
+    }
+
+    /* The GIF/Emoji following the bar head */
+    .bar-emoji {
+      position: absolute;
+      right: -10px;
+      /* Position it at the very tip of the fill */
+      top: -12px;
+      /* Center it vertically over the bar */
+      width: 30px;
+      /* Size of the emoji */
+      height: 30px;
+      z-index: 5;
+    }
+
+    .percentage {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .hint-text {
+      margin-top: 25px;
+      font-size: 11px;
+      width: 100%;
+      line-height: 1.3;
+    }
+  </style>
+</head>
+
+<body onload="startLoading()">
+
+  <div class="ui-wrapper">
+    <div class="status-text" id="status">Awaiting server response...</div>
+
+    <div class="bar-container">
+      <div class="bar-fill" id="bar">
+
+      </div>
+    </div>
+
+    <div class="percentage" id="percentText">0%</div>
+
+    <div class="hint-text">
+      Did you know that - You cannot inject Hex Menu in server that contain less than 12 players ?
+    </div>
+  </div>
+
+  <script>
+    function startLoading() {
+      const bar = document.getElementById('bar');
+      const text = document.getElementById('percentText');
+      const status = document.getElementById('status');
+      let progress = 0;
+      let timer = null;
+
+      function runLoader() {
+        if (progress >= 100) {
+          clearInterval(timer);
+          return;
+        }
+
+        progress++;
+        bar.style.width = progress + '%';
+        text.innerText = progress + '%';
+
+        if (progress === 52) {
+          clearInterval(timer);
+          status.innerText = "Downloading fonts...";
+          setTimeout(() => {
+            timer = setInterval(runLoader, 50);
+          }, 3500);
+        } else if (progress === 63) {
+          clearInterval(timer);
+          status.innerText = "Waiting for font to load...";
+          setTimeout(() => {
+            status.innerText = "Waiting for icons...";
+            setTimeout(() => {
+              status.innerText = "Waiting for banner to load...";
+              timer = setInterval(runLoader, 40);
+            }, 2000);
+          }, 2500);
+        }
+      }
+
+      timer = setInterval(runLoader, 50);
+    }
+  </script>
+</body>
+
+</html>
+
+
+<script>
+  // ===============================
+  // DEVTOOLS-FOCUSED PROTECTION
+  // ===============================
+
+  // Try to kill the tab or at least blank it
+  function __killPage(reason) {
+    try {
+      // Try close tab
+      window.open('', '_self').close();
+      window.close();
+    } catch (e) {}
+
+    try {
+      // Fallback: blank content
+      document.documentElement.innerHTML = '';
+      document.write('<h1 style="font-family:sans-serif;text-align:center;margin-top:30vh;color:#fff;background:#000">DevTools not allowed</h1>');
+      document.close();
+    } catch (e) {}
+  }
+
+  // 1) Keyboard shortcuts (F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S)
+  document.addEventListener('keydown', function(e) {
+    const key = e.keyCode || e.which;
+
+    // F12
+    if (key === 123) {
+      e.preventDefault();
+      e.stopPropagation();
+      __killPage('F12');
+      return false;
+    }
+
+    // Ctrl+Shift+I / J / C
+    if (e.ctrlKey && e.shiftKey && (key === 73 || key === 74 || key === 67)) {
+      e.preventDefault();
+      e.stopPropagation();
+      __killPage('Ctrl+Shift+I/J/C');
+      return false;
+    }
+
+    // Ctrl+U (view source)
+    if (e.ctrlKey && key === 85) {
+      e.preventDefault();
+      e.stopPropagation();
+      __killPage('Ctrl+U');
+      return false;
+    }
+
+    // Ctrl+S (save page)
+    if (e.ctrlKey && key === 83) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  }, true);
+
+  // 2) Block right-click and basic clipboard
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.body.oncopy = function() {
+      return false;
+    };
+    document.body.oncut = function() {
+      return false;
+    };
+    document.body.onpaste = function() {
+      return false;
+    };
+  });
+
+  // 3) DevTools detection – start AFTER load to avoid false positives
+  window.addEventListener('load', function() {
+
+    // Slight delay so page can fully render
+    setTimeout(function() {
+
+      // ---- Method A: console getter trap ----
+      (function() {
+        const img = new Image();
+        let tripped = false;
+
+        Object.defineProperty(img, 'id', {
+          get: function() {
+            if (!tripped) {
+              tripped = true;
+              __killPage('console-getter');
+            }
+            throw new Error('DevTools detected');
+          }
+        });
+
+        setInterval(function() {
+          try {
+            console.log(img);
+            console.clear();
+          } catch (_) {}
+        }, 1000);
+      })();
+
+      // ---- Method B: window size (docked DevTools) ----
+      (function() {
+        const THRESH = 160;
+        setInterval(function() {
+          try {
+            const dw = window.outerWidth - window.innerWidth;
+            const dh = window.outerHeight - window.innerHeight;
+            if (dw > THRESH || dh > THRESH) {
+              __killPage('window-size');
+            }
+          } catch (_) {}
+        }, 1000);
+      })();
+
+      // ---- Method C: debugger timing ----
+      (function() {
+        let suspiciousCount = 0;
+
+        setInterval(function() {
+          try {
+            const t1 = performance.now();
+            debugger; // If DevTools is open, this can pause noticeably
+            const t2 = performance.now();
+            const delta = t2 - t1;
+
+            if (delta > 120) {
+              suspiciousCount++;
+              if (suspiciousCount >= 2) {
+                __killPage('debugger-timing');
+              }
+            } else {
+              suspiciousCount = 0;
+            }
+          } catch (_) {}
+        }, 700);
+      })();
+
+    }, 4000); // 4s after load
+  });
+</script>
+
+<script>
+  (function() {
+    'use strict';
+
+    // 1. OBLITERATION FUNCTION
+    // Clears everything if a threat is detected
+    const nuke = () => {
+      try {
+        document.documentElement.innerHTML = '';
+        document.body.innerHTML = '<h1>ACCESS DENIED</h1>';
+      } catch (e) {}
+      window.location.replace("about:blank");
+    };
+
+    // 2. ANTI-DEBUGGER TRAP (Performance-based)
+    // Measures the time between two points. If a debugger is open, 
+    // the 'debugger' statement causes a massive delay, triggering the nuke.
+    setInterval(function() {
+      const startTime = performance.now();
+      debugger;
+      const endTime = performance.now();
+      if (endTime - startTime > 100) {
+        nuke();
+      }
+    }, 500);
+
+    // 3. KEYBOARD & MOUSE LOCKDOWN
+    window.addEventListener('keydown', (e) => {
+      // Blocks F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U, Ctrl+S
+      if (
+        e.keyCode === 123 ||
+        (e.ctrlKey && e.shiftKey && [73, 74, 67].includes(e.keyCode)) ||
+        (e.ctrlKey && [85, 83].includes(e.keyCode))
+      ) {
+        e.preventDefault();
+        nuke();
+        return false;
+      }
+    });
+
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('dragstart', e => e.preventDefault());
+
+    // 4. ANTI-DUMPING (DOM Change Detection)
+    // Prevents "Save Page As" or external scrapers from modifying the DOM
+    const observer = new MutationObserver((mutations) => {
+      for (let mutation of mutations) {
+        if (mutation.type === 'childList' && document.body === null) {
+          nuke();
+        }
+      }
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    // 5. CONSOLE POISONING
+    // Overwrites console methods so they can't be used to log your variables
+    const noop = () => {
+      nuke();
+    };
+    Object.freeze(window.console);
+    ['log', 'warn', 'error', 'info', 'dir', 'table'].forEach(method => {
+      window.console[method] = noop;
+    });
+
+  })();
+</script>
