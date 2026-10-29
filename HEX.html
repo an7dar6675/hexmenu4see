@@ -645,6 +645,37 @@
     #notification-container { font-family: 'Inter', 'Segoe UI', sans-serif; }
     .notification { border: 0.1vh solid rgba(255, 255, 255, 0.06); border-radius: 0.4vh; }
     .notification-progress-bar { border-radius: 0.3vh; }
+
+    /* --------------------- standalone preview ----------------------- */
+    /* opening HEX.html in a normal browser shows the menu with demo data;
+       inside the game the page stays display-only (pointer-events: none) */
+    body.lumia-preview #menu-root,
+    body.lumia-preview #menu-root * { pointer-events: auto !important; }
+    body.lumia-preview #menu-root,
+    body.lumia-preview #header-wrapper,
+    body.lumia-preview #menu-footer {
+        opacity: 1 !important; transform: none !important; transition: none !important;
+    }
+    /* shown until the first state (or the demo) paints */
+    #lumia-boot {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        font-family: 'Inter', 'Segoe UI', sans-serif; font-weight: 800;
+        font-size: 2.4vh; letter-spacing: 0.7vh; color: rgba(255, 255, 255, 0.75);
+        text-shadow: 0 0 1.6vh rgba(231, 76, 60, 0.55);
+        pointer-events: none !important; animation: lumia-breathe 1.8s ease-in-out infinite;
+    }
+    @keyframes lumia-breathe { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+    body.lumia-preview #items-list .menu-item { cursor: pointer; }
+    body.lumia-preview #menu-tabs .tab-item { cursor: pointer; }
+    #lumia-preview-badge {
+        position: fixed; right: 1.4vh; bottom: 1.2vh; z-index: 50;
+        font-family: 'Inter', 'Segoe UI', sans-serif; font-size: 1vh;
+        letter-spacing: 0.12vh; font-weight: 600;
+        color: rgba(255, 255, 255, 0.6); background: rgba(0, 0, 0, 0.5);
+        border: 0.1vh solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.4vh; padding: 0.35vh 0.8vh;
+        pointer-events: none !important;
+    }
 </style>
 
 <script>
@@ -702,6 +733,17 @@
             strip.style.display = "none";
             tabs.parentNode.insertBefore(strip, tabs.nextSibling);
         }
+        if (!el("lumia-boot") && !st) {
+            var boot = doc.createElement("div");
+            boot.id = "lumia-boot";
+            boot.textContent = "LUMIA";
+            doc.body.appendChild(boot);
+        }
+    }
+
+    function hideBoot() {
+        var boot = el("lumia-boot");
+        if (boot && boot.parentNode) boot.parentNode.removeChild(boot);
     }
 
     /* ------------------------------------------------------------------
@@ -958,6 +1000,7 @@
     function applyState(s) {
         st = s;
         ensureChrome();
+        hideBoot();
 
         if (s.main && window.updateMenuColors) {
             window.updateMenuColors({ mainColor: s.main, backColor: s.back || "#141414" });
@@ -982,6 +1025,9 @@
         if (!data || typeof data !== "object") return;
 
         var action = data.action;
+        if (action === "state" || action === "visible" || action === "select") {
+            stopDemo();
+        }
         if (action === "state") {
             applyState(data);
         } else if (action === "select") {
@@ -1027,12 +1073,246 @@
         engine: function () { return typeof window.updateMenuData === "function"; }
     };
 
+    /* ------------------------------------------------------------------
+       standalone preview
+       ------------------------------------------------------------------
+       FiveM's CEF reports a CitizenFX/FiveM user agent. Anywhere else (a
+       normal browser or the GitHub Pages link) the page shows the menu with
+       demo data after a moment, so the design can be checked without the
+       game. The first real state from Lua replaces the demo.
+       ------------------------------------------------------------------ */
+    var IS_GAME = /CitizenFX|FiveM|cfx/i.test(navigator.userAgent || "");
+    var demoOn = false;
+    var demo = { tab: 0, sel: 1 };
+
+    var DEMO_TABS = ["Self", "Settings", "Vehicle", "Weapon", "Online", "Misc", "Cloud", "Script"];
+
+    var DEMO_SUBS = [
+        ["Player", "Combat", "Movement", "Misc", "Settings"],
+        ["Appearance", "Behaviour", "Notifications", "System"],
+        ["Spawner", "Mods", "Options", "Preview"],
+        ["Spawner", "Options"],
+        ["Players", "Events", "Chat", "Troll"],
+        [],
+        ["Scripts", "Vehicles", "Banners", "Saves"],
+        []
+    ];
+
+    var DEMO_HELP = "Preview - arrow keys or mouse navigate, click a tab to switch";
+
+    var DEMO_OPTS = [
+        [
+            { name: "— Player —", separator: true },
+            { name: "Revive", button: {}, desc: "Revive your character where you stand." },
+            { name: "Suicide", button: {}, desc: "Kill your character." },
+            { name: "God Mode", checkbox: { checked: true }, desc: "Blocks all damage." },
+            { name: "Invisibility", checkbox: { checked: false }, desc: "Hides your ped from other players." },
+            { name: "Semi God Mode", checkbox: { checked: true }, desc: "Blocks bullet damage only." },
+            { name: "Give Health", checkbox: { checked: false }, desc: "Refills health every second." },
+            { name: "Give Armour", checkbox: { checked: false }, desc: "Refills armour every second." },
+            { name: "— Movement —", separator: true },
+            { name: "Walk Speed", range: { min: 0.5, max: 3, step: 0.05, value: 1.25 }, desc: "Left / Right to change the walk speed." },
+            { name: "Sprint Multiplier", range: { min: 1, max: 2, step: 0.05, value: 1.49 }, desc: "Left / Right to change the sprint multiplier." },
+            { name: "No Clip", checkbox: { checked: false }, desc: "Fly through walls (WASD + Space/Ctrl)." },
+            { name: "Freecam", submenu: true, desc: "Free camera with speed and FOV sliders." },
+            { name: "Player Outfits", submenu: true, desc: "Save and load your outfits." },
+            { name: "Accent Colour", color: "#e74c3c", desc: "Left / Right cycles the menu accent." },
+            { name: "Nickname", textbox: { value: "an7dar" }, desc: "Enter renames, Backspace clears." }
+        ],
+        [
+            { name: "— Appearance —", separator: true },
+            { name: "Accent Colour", color: "#e74c3c", desc: "Menu accent colour preset." },
+            { name: "Background", color: "#141414", desc: "Panel background colour." },
+            { name: "Menu Scale", range: { min: 0.7, max: 1.3, step: 0.05, value: 1 }, desc: "Scales the whole panel." },
+            { name: "Animation Speed", range: { min: 0.5, max: 2, step: 0.1, value: 1 }, desc: "How fast rows and tabs animate." },
+            { name: "— Behaviour —", separator: true },
+            { name: "Menu Sounds", checkbox: { checked: true }, desc: "Click and hover sounds." },
+            { name: "Notifications", checkbox: { checked: true }, desc: "Popups in the top right." },
+            { name: "Disable Controls", checkbox: { checked: false }, desc: "Freeze game input while open." },
+            { name: "Open Key", slider: { options: ["F9", "INSERT", "F8", "F10"], value: 1 }, desc: "Key that toggles the menu." },
+            { name: "— System —", separator: true },
+            { name: "Unload Menu", button: {}, desc: "Stops the script until the next injection." },
+            { name: "Reset Settings", button: {}, desc: "Back to the defaults." },
+            { name: "Save Config", button: {}, desc: "Stores everything under a name." }
+        ],
+        [
+            { name: "— Spawner —", separator: true },
+            { name: "Spawn by name", textbox: { value: "adder" }, desc: "Model name to spawn." },
+            { name: "Spawn Inside", checkbox: { checked: true }, desc: "Sit in the car right away." },
+            { name: "Spawn Full Tune", button: {}, desc: "Max upgrades on the spawned car." },
+            { name: "Vehicle Class", slider: { options: ["Super", "Sports", "Muscle", "Sedans", "SUVs"], value: 1 }, desc: "Filter of the vehicle list." },
+            { name: "— Options —", separator: true },
+            { name: "Repair", button: {}, desc: "Fixes the current vehicle." },
+            { name: "Flip", button: {}, desc: "Puts the car back on its wheels." },
+            { name: "God Mode", checkbox: { checked: false }, desc: "Vehicle cannot be damaged." },
+            { name: "Engine Power", range: { min: 1, max: 5, step: 0.25, value: 2.5 }, desc: "Torque multiplier." },
+            { name: "Vehicle Preview", submenu: true, desc: "Spin the car in front of you." }
+        ],
+        [
+            { name: "— Spawner —", separator: true },
+            { name: "Give All Weapons", button: {}, desc: "Every weapon with ammo." },
+            { name: "Remove Weapons", button: {}, desc: "Empties the weapon wheel." },
+            { name: "Weapon Group", slider: { options: ["Pistols", "SMGs", "Rifles", "Shotguns"], value: 3 }, desc: "Which group the give button uses." },
+            { name: "Infinite Ammo", checkbox: { checked: true }, desc: "Ammo never drops." },
+            { name: "No Recoil", checkbox: { checked: true }, desc: "Removes camera kick." },
+            { name: "— Options —", separator: true },
+            { name: "Damage Multiplier", range: { min: 1, max: 20, step: 0.5, value: 4 }, desc: "Bullet damage multiplier." },
+            { name: "Weapon Preview", submenu: true, desc: "Show the weapon model." }
+        ],
+        [
+            { name: "— Players —", separator: true },
+            { name: "Player List", submenu: true, desc: "Everyone on the server." },
+            { name: "Spectate", button: {}, desc: "Camera follows the selected player." },
+            { name: "Copy Steam Hex", button: {}, desc: "Copies the identifier." },
+            { name: "— Events —", separator: true },
+            { name: "Event Log", checkbox: { checked: true }, desc: "Logs every server event." },
+            { name: "Kick Protection", checkbox: { checked: false }, desc: "Blocks forced disconnects." },
+            { name: "Chat Spam", range: { min: 1, max: 50, step: 1, value: 8 }, desc: "Messages per second." }
+        ],
+        [
+            { name: "— World —", separator: true },
+            { name: "Time", slider: { options: ["Morning", "Noon", "Evening", "Night"], value: 2 }, desc: "Sets the clock." },
+            { name: "Weather", slider: { options: ["Clear", "Clouds", "Rain", "Thunder", "Snow"], value: 1 }, desc: "Sets the weather." },
+            { name: "Freeze Time", checkbox: { checked: false }, desc: "Locks the current hour." },
+            { name: "— Tools —", separator: true },
+            { name: "Teleport to Marker", button: {}, desc: "Moves you to the waypoint." },
+            { name: "Radar", checkbox: { checked: true }, desc: "Always show the minimap." },
+            { name: "Explosion Radius", range: { min: 1, max: 20, step: 0.5, value: 5 }, desc: "Blast size." }
+        ],
+        [
+            { name: "— Scripts —", separator: true },
+            { name: "Refresh", button: {}, desc: "Re-reads the cloud panel." },
+            { name: "Upload", button: {}, desc: "Sends the current config." },
+            { name: "— Saves —", separator: true },
+            { name: "Config name", textbox: { value: "" }, desc: "Name used by Save / Load." },
+            { name: "Save", button: {}, desc: "Stores the config." },
+            { name: "Load", button: {}, desc: "Restores the config." },
+            { name: "Delete", button: {}, desc: "Removes the config." },
+            { name: "Cloud Banner", color: "#e74c3c", desc: "Colour of the cloud header." }
+        ],
+        [
+            { name: "— Script —", separator: true },
+            { name: "Run Lua", button: {}, desc: "Opens the script box." },
+            { name: "Script Folder", button: {}, desc: "Path of the local scripts." },
+            { name: "Auto Run", checkbox: { checked: false }, desc: "Runs the last script on injection." }
+        ]
+    ];
+
+    function demoList() {
+        var list = DEMO_OPTS[demo.tab] || [];
+        if (!list.length) return list;
+        if (demo.sel < 1) demo.sel = 1;
+        if (demo.sel > list.length) demo.sel = list.length;
+        return list;
+    }
+
+    function demoState() {
+        var list = demoList();
+        var picked = list[demo.sel - 1] || {};
+        var tabs = [];
+        for (var i = 0; i < DEMO_TABS.length; i++) tabs.push({ label: DEMO_TABS[i] });
+        return {
+            action: "state",
+            visible: true,
+            title: DEMO_TABS[demo.tab],
+            tabs: tabs,
+            tabIndex: demo.tab + 1,
+            options: list,
+            sel: demo.sel,
+            subTabs: DEMO_SUBS[demo.tab] || [],
+            subIndex: 1,
+            counter: demo.sel + "/" + list.length,
+            help: picked.desc || DEMO_HELP,
+            key: "F9",
+            main: "#e74c3c",
+            back: "#141414"
+        };
+    }
+
+    function demoPaint() {
+        if (demoOn) applyState(demoState());
+    }
+
+    function demoStep(delta) {
+        var list = demoList();
+        var n = list.length;
+        if (!n) return;
+        var i = demo.sel;
+        for (var k = 0; k < n; k++) {
+            i = ((i - 1 + delta) % n + n) % n + 1;
+            if (!list[i - 1].separator) break;
+        }
+        demo.sel = i;
+        demoPaint();
+    }
+
+    function demoShow(tab) {
+        var n = DEMO_TABS.length;
+        demo.tab = ((tab % n) + n) % n;
+        demo.sel = 1;
+        demoPaint();
+    }
+
+    function stopDemo() {
+        if (!demoOn) return;
+        demoOn = false;
+        doc.body.classList.remove("lumia-preview");
+        var badge = el("lumia-preview-badge");
+        if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
+    }
+
+    function demoStart() {
+        if (demoOn || st) return;
+        demoOn = true;
+        doc.body.classList.add("lumia-preview");
+        var badge = doc.createElement("div");
+        badge.id = "lumia-preview-badge";
+        badge.textContent = "PREVIEW - LIVE IN GAME";
+        doc.body.appendChild(badge);
+        demoPaint();
+
+        doc.addEventListener("keydown", function (e) {
+            if (!demoOn) return;
+            var k = e.key;
+            if (k === "ArrowUp") { demoStep(-1); e.preventDefault(); }
+            else if (k === "ArrowDown") { demoStep(1); e.preventDefault(); }
+            else if (k === "ArrowLeft") { demoShow(demo.tab - 1); e.preventDefault(); }
+            else if (k === "ArrowRight") { demoShow(demo.tab + 1); e.preventDefault(); }
+        });
+
+        doc.addEventListener("click", function (e) {
+            if (!demoOn || !e.target || !e.target.closest) return;
+            var row = e.target.closest("#items-list .menu-item");
+            if (row) {
+                var idx = parseInt(row.dataset.index, 10);
+                var list = demoList();
+                if (!isNaN(idx) && list[idx] && !list[idx].separator) {
+                    demo.sel = idx + 1;
+                    demoPaint();
+                }
+                return;
+            }
+            var tab = e.target.closest("#menu-tabs .tab-item");
+            if (tab) {
+                var tabs = Array.prototype.slice.call(doc.querySelectorAll("#menu-tabs .tab-item"));
+                var at = tabs.indexOf(tab);
+                if (at >= 0) demoShow(at);
+            }
+        });
+    }
+
     ensureChrome();
     window.addEventListener("load", function () {
         ensureChrome();
         setTimeout(ensureChrome, 250);
         setTimeout(ensureChrome, 1200);
     });
+
+    /* show the demo only outside the game and only if Lua has not pushed yet;
+       the Lua side resends every 1.5 s, so a real state always arrives first */
+    if (!IS_GAME) {
+        setTimeout(function () { if (!st) demoStart(); }, 2500);
+    }
 })();
 </script>
 
